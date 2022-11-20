@@ -1,3 +1,4 @@
+import net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default
 import net.minecrell.pluginyml.bukkit.BukkitPluginDescription.PluginLoadOrder
 
 plugins {
@@ -15,6 +16,17 @@ bukkit {
     this.depend = listOf("Minix")
     this.main = "dev.racci.simplix.Simplix"
     this.load = PluginLoadOrder.STARTUP
+
+    this.permissions {
+        this.register("simplix.rename") {
+            this.description = "Allows the user to rename items"
+            this.default = Default.OP
+        }
+        this.register("simplix.lore") {
+            this.description = "Allows the user to edit the lore of items"
+            this.default = Default.OP
+        }
+    }
 }
 
 tasks {

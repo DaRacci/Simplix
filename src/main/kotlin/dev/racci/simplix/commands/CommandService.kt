@@ -1,7 +1,9 @@
 package dev.racci.simplix.commands
 
+import cloud.commandframework.ArgumentDescription
 import cloud.commandframework.arguments.flags.CommandFlag
 import cloud.commandframework.arguments.parser.ArgumentParseResult
+import cloud.commandframework.arguments.standard.IntegerArgument
 import cloud.commandframework.arguments.standard.StringArgument
 import cloud.commandframework.bukkit.parsers.PlayerArgument
 import cloud.commandframework.bukkit.parsers.WorldArgument
@@ -18,12 +20,16 @@ import com.destroystokyo.paper.block.TargetBlockInfo
 import dev.racci.minix.api.annotations.MappedExtension
 import dev.racci.minix.api.data.enums.LiquidType.Companion.liquidType
 import dev.racci.minix.api.extension.Extension
+import dev.racci.minix.api.extensions.displayName
+import dev.racci.minix.api.extensions.message
 import dev.racci.minix.api.extensions.msg
 import dev.racci.minix.api.extensions.onlinePlayers
 import dev.racci.minix.api.extensions.parse
 import dev.racci.minix.api.extensions.reflection.castOrThrow
 import dev.racci.simplix.Simplix
 import net.kyori.adventure.audience.Audience.audience
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.World
 import org.bukkit.attribute.Attribute
@@ -42,6 +48,7 @@ class CommandService(override val plugin: Simplix) : Extension<Simplix>() {
         this.broadcastCommand()
         this.attributeCommands()
         this.debuggingCommands()
+        this.itemCommands()
     }
 
     private fun loadManager() {
@@ -174,6 +181,101 @@ class CommandService(override val plugin: Simplix) : Extension<Simplix>() {
                     ctx.sender.msg("Block Location: ${block.location}")
                     ctx.sender.msg("Block Biome: ${block.biome}")
                     ctx.sender.msg("Block liquidType: ${block.liquidType}")
+                }
+            }
+        }
+    }
+
+    private fun itemCommands() {
+        manager.buildAndRegister("rename", RichDescription.empty()) {
+            this.permission("simplix.rename")
+            this.senderType<Player>()
+            this.argument(StringArgument.newBuilder<CommandSender>("name").greedy().asRequired())
+            this.handler { ctx ->
+                val player = getTargetOrThrow(ctx)
+                val name = ctx.get<String>("name")
+
+                val item = player.inventory.itemInMainHand
+                val formatted = MiniMessage.miniMessage().deserialize(name)
+
+                item.displayName(formatted)
+
+                Component.text("You have renamed ")
+                    .append(Component.text("item").hoverEvent(item.asHoverEvent()))
+                    .append(Component.text("to "))
+                    .append(formatted)
+                    .append(Component.text('.'))
+                    .colorIfAbsent(NamedTextColor.AQUA) message player
+            }
+        }
+
+        manager.buildAndRegister("editLore", RichDescription.empty()) {
+            this.permission("simplix.lore")
+            this.senderType<Player>()
+            this.flag(
+                "line",
+                arrayOf("l"),
+                ArgumentDescription.empty(),
+                IntegerArgument.optional("line")
+            )
+            this.flag(
+                "remove",
+                arrayOf("r"),
+                ArgumentDescription.empty()
+            )
+            this.flag(
+                "offhand",
+                arrayOf("o"),
+                ArgumentDescription.empty()
+            )
+            this.argument(StringArgument.newBuilder<CommandSender>("lore").greedy().asOptional())
+            this.handler { ctx ->
+                val player = getTargetOrThrow(ctx)
+                val line = ctx.flags().getValue<Int>("line")
+                val removing = ctx.flags().contains("remove")
+                val offhand = ctx.flags().contains("offhand")
+
+                val item = if (offhand) player.inventory.itemInOffHand else player.inventory.itemInMainHand
+                val existingLore = item.lore().orEmpty().toMutableList()
+
+                if (removing) {
+                    when {
+                        line.isEmpty -> player.msg("You must provide a line number to remove.")
+                        existingLore.size < line.get() -> player.msg("Selected item doesn't have lore line ${line.get()}.")
+                        else -> {
+                            val removedLine = existingLore[line.get()]
+                            item.lore(existingLore - removedLine)
+                            Component.text("Remove line ")
+                                .append(removedLine)
+                                .append(Component.text(" from "))
+                                .append(Component.text("item").hoverEvent(item.asHoverEvent()))
+                                .append(Component.text('.'))
+                                .colorIfAbsent(NamedTextColor.AQUA) message player
+                        }
+                    }
+
+                    return@handler
+                }
+
+                val lore = ctx.getOrDefault<String>("lore", null)
+
+                when {
+                    lore == null -> player.msg("You must provide lore to add.")
+                    line.isEmpty -> item.lore(existingLore + MiniMessage.miniMessage().deserialize(lore))
+                    existingLore.size < line.get() -> player.msg("Selected item doesn't have lore line ${line.get()}.")
+                    else -> {
+                        val replacedLine = existingLore[line.get()]
+                        existingLore[line.get()] = MiniMessage.miniMessage().deserialize(lore)
+                        item.lore(existingLore)
+                        Component.text("Replaced line [")
+                            .append(replacedLine)
+                            .append(Component.text("] with ["))
+                            .append(MiniMessage.miniMessage().deserialize(lore))
+                            .append(Component.text("] in "))
+                            .append(Component.text("item").hoverEvent(item.asHoverEvent()))
+                            .append(Component.text('.'))
+                            .colorIfAbsent(NamedTextColor.AQUA) message player
+                    }
                 }
             }
         }
