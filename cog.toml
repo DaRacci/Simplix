@@ -1,0 +1,27 @@
+pre_bump_hooks = [
+    "bash -c \"scripts/pre-bump.sh {{latest}} {{version}}\"",
+]
+post_bump_hooks = [
+    "bash -c \"scripts/post-bump.sh {{latest}} {{version}} {{version+patch-SNAPSHOT}}\"",
+]
+
+tag_prefix = "v"
+branch_whitelist = [ "master" ]
+
+[commit_types]
+gradle = { changelog_title = "Build" }
+format = { changelog_title = "Formatting" }
+
+
+[changelog]
+path = "CHANGELOG.md"
+template = "remote"
+remote = "github.com"
+repository = "Simplix"
+owner = "DaRacci"
+authors = [
+    { signature = "Racci", username = "DaRacci" },
+    { signature = "DaRacci", username = "DaRacci" }
+]
+
+
